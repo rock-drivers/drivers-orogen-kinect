@@ -1,0 +1,37 @@
+name "kinect"
+
+import_types_from "base"
+
+using_library "opencv"
+using_task_library "interfaces"
+
+task_context "Task" do
+   needs_configuration
+   
+#   output_port("scans", "/base/samples/LaserScan").
+#        max_sizes("remission" => 2000, "ranges" => 2000).
+#        doc("depth samples represented by LaserScan")
+
+#   output_port("camera_frame", ro_ptr("/base/samples/frame/Frame").
+#        doc("video image retrieved from Camera")
+
+#   output_port("infra_frame", ro_ptr("/base/samples/frame/Frame").
+#        doc("infrared image retrieved from Camera")
+
+#   output_port("orientation", "/base/samples/RigidBodyState").
+#        doc("current orientation of servo")
+
+
+   property("device_id", "int", 0).
+        doc("selects a specific kinect device if more than one are connected")
+   
+#   property("
+
+
+#   runtime_states "ALL_DEVICES", 
+#        "LASER", "CAMERA", "SERVO", "MIC",
+#        "LASER_CAMERA", "LASER_SERVO", "LASER_MIC", "CAMERA_SERVO", "CAMERA_MIC", "SERVO_MIC",
+#        "LASER_CAMERA_SERVO", "LASER_CAMERA_MIC", "CAMERA_SERVO_MIC"
+
+end
+
