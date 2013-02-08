@@ -1,9 +1,7 @@
 name "kinect"
 
-import_types_from "base"
-
 using_library "opencv"
-using_task_library "interfaces"
+import_types_from "base"
 
 task_context "Task" do
    needs_configuration

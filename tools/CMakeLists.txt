@@ -1,8 +1,5 @@
+find_package(Rock)
 
-
-add_executable(kinect-check-devices kinect_check_devices.cpp)
-
-target_link_libraries(kinect-check-devices freenect)
-
-install(TARGETS kinect-check-devices DESTINATION bin)
-
+rock_executable(kinect-check-devices
+    SOURCES kinect_check_devices.cpp
+    DEPS_PKGCONFIG libfreenect)
