@@ -5,6 +5,8 @@
 #include "Task.hpp"
 #include <base/logging.h>
 #include <string>
+#include <signal.h>
+
 
 using namespace kinect;
 using namespace base::samples;
@@ -30,17 +32,25 @@ static const char* depth_format[] = {
 };
 
 
+bool processing_loop_running = false;
+
+
+void exit_processing_loop(int signum) {
+    processing_loop_running = false;
+}
+
+
 
 Task::Task(std::string const& name, RTT::base::TaskCore::TaskState state)
     : TaskBase(name, state), 
     context(NULL), 
     device(NULL),
     internal_video_buffer(NULL),
-    internal_depth_buffer(NULL),
-    video_capturing_enabled(false),
-    depth_capturing_enabled(false)
+    internal_depth_buffer(NULL)
 {
     log_freenect_driver_informations();
+
+    signal(SIGUSR1, exit_processing_loop);
 }
 
 Task::Task(std::string const& name, RTT::ExecutionEngine* engine, RTT::base::TaskCore::TaskState state)
@@ -48,9 +58,7 @@ Task::Task(std::string const& name, RTT::ExecutionEngine* engine, RTT::base::Tas
     context(NULL), 
     device(NULL),
     internal_video_buffer(NULL),
-    internal_depth_buffer(NULL),
-    video_capturing_enabled(false),
-    depth_capturing_enabled(false)
+    internal_depth_buffer(NULL)
 {
     log_freenect_driver_informations();
 }
@@ -163,20 +171,10 @@ bool Task::initialize_freenect(void)
     }
 
     // setup hooks and buffer references for capturing
-    freenect_set_user(device, this);
+    //freenect_set_user(device, this);
 
     freenect_set_video_callback(device, &video_capturing_callback);
     freenect_set_depth_callback(device, &depth_capturing_callback);
-
-    if(freenect_set_video_buffer(device, internal_video_buffer) < 0) {
-        LOG_ERROR("Couldn't set reference to the internal video buffer in freenect");
-        return false;
-    }
-
-    if(freenect_set_depth_buffer(device, internal_depth_buffer) < 0) {
-        LOG_ERROR("Couldn't set reference to the internal depth buffer in freenect");
-        return false;
-    }
 
     return true;
 }
@@ -207,7 +205,15 @@ bool Task::initialize_frames(void)
     video_mode = freenect_find_video_mode(res, format);
     depth_mode = freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_MM);
 
+
+
     if(_video_capturing.get()) {
+        if(freenect_set_video_buffer(device, internal_video_buffer) < 0) {
+            LOG_ERROR("Couldn't set reference to the internal video buffer in freenect");
+            return false;
+        }
+
+
         if(!video_mode.is_valid) {
             LOG_ERROR("Current video format configuration (%d x %d, %s) not supported", 
                     _video_width.get(), 
@@ -235,6 +241,12 @@ bool Task::initialize_frames(void)
 
 
     if(_depth_capturing.get()) {
+        if(freenect_set_depth_buffer(device, internal_depth_buffer) < 0) {
+           LOG_ERROR("Couldn't set reference to the internal depth buffer in freenect");
+            return false;
+        }
+
+
         if(!depth_mode.is_valid) {
             LOG_ERROR("Current depth format configuration (640 x 480, DEPTH_MM) not supported");
             return false;
@@ -261,13 +273,67 @@ bool Task::initialize_frames(void)
 
 void kinect::video_capturing_callback(freenect_device* device, void* video, uint32_t timestamp)
 {
-    kinect::Task* task = reinterpret_cast<kinect::Task*>(freenect_get_user(device));
+    kinect::Task* task = reinterpret_cast<Task*>(freenect_get_user(device));
+    //frame::Frame* frame = task->video_frame.write_access();
+
+    //frame->setStatus(frame::STATUS_VALID);
+    //frame->received_time = base::Time::now();
+    
+    //frame->setImage(reinterpret_cast<const char*>(video), task->video_mode.bytes);
+
+    //frame->attributes.clear();
+
+    //task->_video_frame.write(task->video_frame);
 }
 
 
 void kinect::depth_capturing_callback(freenect_device* device, void* depth, uint32_t timestamp)
 {
     kinect::Task* task = reinterpret_cast<kinect::Task*>(freenect_get_user(device));
+        
+    //DistanceImage* frame = task->depth_frame.write_access();
+}
+
+
+void* kinect::processing_loop(void* self) {
+    kinect::Task* task = reinterpret_cast<kinect::Task*>(self);
+
+    if(task->_video_capturing.get()) {
+        if(freenect_start_video(task->device) < 0) {
+            LOG_ERROR("Couldn't start video capturing");
+            return false;
+        } else {
+            LOG_INFO("Start video capturing");
+        }
+    }
+
+    if(task->_depth_capturing.get()) {
+        if(freenect_start_depth(task->device) < 0) {
+            LOG_ERROR("Couldn't start depth capturing");
+            return false;
+        } else {
+            LOG_INFO("Start depth capturing");
+        }
+    }
+
+    processing_loop_running = true;
+
+    while(processing_loop_running) {
+        if(freenect_process_events(task->context) < 0) {
+            LOG_ERROR("Usb processor failed in update thread");
+            return NULL;
+        }
+    }
+
+    if(task->_video_capturing.get())
+        if(freenect_stop_video(task->device) < 0)
+            LOG_ERROR("Could not stop video capturing process");
+
+    if(task->_depth_capturing.get())
+        if(freenect_stop_depth(task->device) < 0)
+            LOG_ERROR("Could not stop depth capturing process");
+
+    return NULL;
 }
 
 
@@ -288,27 +354,12 @@ bool Task::startHook()
 
     freenect_set_led(device, LED_GREEN);
 
-    video_capturing_enabled = _video_capturing.get();
-    depth_capturing_enabled = _depth_capturing.get();
-
-    if(video_capturing_enabled) {
-        if(freenect_start_video(device) < 0) {
-            LOG_ERROR("Couldn't start video capturing");
-            return false;
-        } else {
-            LOG_INFO("Start video capturing");
-        }
+    if(pthread_create(&freenect_thread, NULL, processing_loop, this)) {
+        LOG_ERROR("Couldn't started usb processing thread for freenect");
+        return false;
     }
 
-    if(video_capturing_enabled) {
-        if(freenect_start_depth(device) < 0) {
-            LOG_ERROR("Couldn't start depth capturing");
-            return false;
-        } else {
-            LOG_INFO("Start depth capturing");
-        }
-    }
-       
+     
     return true;
 }
 
@@ -318,6 +369,7 @@ void Task::updateHook()
 {
     RTT::TaskContext::updateHook();
 
+    /*
     base::Angle angle;
     double dx, dy, dz;
 
@@ -357,6 +409,7 @@ void Task::updateHook()
 
         state(TILT_MOVING);
     }
+    */
 }
 
 
@@ -375,6 +428,10 @@ void Task::stopHook()
     RTT::TaskContext::stopHook();
 
     freenect_set_led(device, LED_RED);
+
+    pthread_kill(freenect_thread, SIGUSR1);
+
+    sleep(1);
 
     if(internal_video_buffer != NULL) {
         delete[] internal_video_buffer;

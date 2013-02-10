@@ -6,6 +6,8 @@
 #include <libfreenect.h>
 
 #include "kinect/TaskBase.hpp"
+#include <stdio.h>
+#include <pthread.h>
 
 namespace kinect {
 
@@ -34,12 +36,19 @@ namespace kinect {
      */
     void depth_capturing_callback(freenect_device* device, void* depth, uint32_t timestamp);
 
+    /**
+     * usb processor for calling all callbacks
+     */
+    void* processing_loop(void* self);
+
+
 
     class Task : public TaskBase
     {
         friend class TaskBase;
-        friend void video_capturing_callback(freenect_device* device, void* video, uint32_t timestamp);
-        friend void depth_capturing_callback(freenect_device* device, void* depth, uint32_t timestamp);
+        friend void  video_capturing_callback(freenect_device* device, void* video, uint32_t timestamp);
+        friend void  depth_capturing_callback(freenect_device* device, void* depth, uint32_t timestamp);
+        friend void* processing_loop(void* self);
 
     protected:
         freenect_context* context;
@@ -57,6 +66,8 @@ namespace kinect {
         bool video_capturing_enabled;
         bool depth_capturing_enabled;
 
+        pthread_t freenect_thread;
+
         /**
          * Output general driver freenect driver informations to rock's base logger
          */
@@ -66,7 +77,6 @@ namespace kinect {
          * redirect freenects log outputs to rock's base logger
          */
         static void redirect_freenect_logs_to_rock(freenect_context* context, freenect_loglevel level, const char* msg);
-
 
 
         /**
