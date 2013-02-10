@@ -4,6 +4,7 @@
 
 #include "Task.hpp"
 #include <base/logging.h>
+#include <string>
 
 using namespace kinect;
 
@@ -26,6 +27,7 @@ static const char* depth_format[] = {
     "MM_REGISTERED",
     "MM_UNSCALED"
 };
+
 
 
 Task::Task(std::string const& name, RTT::base::TaskCore::TaskState state)
@@ -63,7 +65,7 @@ void Task::log_freenect_driver_informations(void)
     for(i = 0; i < video_modes; ++i) {
         freenect_frame_mode fm = freenect_get_video_mode(i);
 
-        LOG_INFO("  video - %d x %d, %s, %d fps, %d databits_pe_pixel, %d paddingbits_per_pixel",
+        LOG_INFO("  video - %d x %d, %s, %d fps, %d databits_per_pixel, %d paddingbits_per_pixel",
                 fm.width, fm.height,
                 video_format[fm.video_format],
                 fm.framerate,
@@ -75,7 +77,7 @@ void Task::log_freenect_driver_informations(void)
     for(i = 0; i < depth_modes; ++i) {
         freenect_frame_mode fm = freenect_get_depth_mode(i);
 
-        LOG_INFO("  depth - %d x %d, %s, %d fps, %d databits_pe_pixel, %d paddingbits_per_pixel",
+        LOG_INFO("  depth - %d x %d, %s, %d fps, %d databits_per_pixel, %d paddingbits_per_pixel",
                 fm.width, fm.height,
                 depth_format[fm.depth_format],
                 fm.framerate,
@@ -84,6 +86,146 @@ void Task::log_freenect_driver_informations(void)
    }
 
 }
+
+
+void Task::redirect_freenect_logs_to_rock(freenect_context* context, freenect_loglevel level, const char* msg)
+{
+    // remove newlines chars in msg
+    std::string message(msg);
+
+    size_t pos = message.rfind('\n');
+
+    if(pos != std::string::npos) {
+        message.replace(pos, 1, "");
+    }
+
+    switch(level) {
+        case FREENECT_LOG_FATAL:
+            LOG_FATAL("Freenect - %s", message.c_str());
+            break;
+        case FREENECT_LOG_ERROR:
+            LOG_ERROR("Freenect - %s", message.c_str());
+            break;
+        case FREENECT_LOG_WARNING:
+            LOG_WARN("Freenect - %s", message.c_str());
+            break;
+        case FREENECT_LOG_NOTICE:
+            LOG_INFO("Freenect - %s", message.c_str());
+            break;
+        case FREENECT_LOG_INFO:
+            LOG_INFO("Freenect - %s" ,message.c_str());
+            break;
+        case FREENECT_LOG_DEBUG:
+        case FREENECT_LOG_SPEW:
+        case FREENECT_LOG_FLOOD:
+            LOG_DEBUG("Freenect - %s", message.c_str());
+            break;
+    }
+}
+
+
+bool Task::initialize_freenect(void)
+{
+    // initialize freenect context, devices and logging redirects
+    if(freenect_init(&context, NULL) < 0) {
+        LOG_ERROR("Couldn't initialize freenect device context");
+        return false;
+    }
+
+    freenect_set_log_callback(context, &Task::redirect_freenect_logs_to_rock);
+
+    if(_freenect_flooding_log.get())
+        freenect_set_log_level(context, FREENECT_LOG_FLOOD);
+    else
+        freenect_set_log_level(context, FREENECT_LOG_DEBUG);
+
+    LOG_INFO("%d kinect device(s) are connected to this system", freenect_num_devices(context));
+    LOG_INFO("Use kinect device with id %d", _device_id.get());
+
+    freenect_select_subdevices(context, static_cast<freenect_device_flags>(FREENECT_DEVICE_MOTOR | FREENECT_DEVICE_CAMERA));
+
+    if(freenect_open_device(context, &device, _device_id.get()) < 0) {
+        LOG_ERROR("Couldn't open freenect devices for motor, camera and audio");
+        return false;
+    }
+
+    freenect_set_user(device, this);
+
+    return true;
+}
+
+
+bool Task::initialize_frame_modes(void)
+{
+    // find and set frame modes
+    freenect_resolution res;
+    freenect_video_format format;
+    
+    base::samples::frame::frame_mode_t vf = _video_format.get();
+
+    if(_video_width.get() <= 320 || _video_height.get() <= 240)
+        res = FREENECT_RESOLUTION_LOW;
+    else if(_video_width.get() <= 640 || _video_height.get() <= 480)
+        res = FREENECT_RESOLUTION_MEDIUM;
+    else
+        res = FREENECT_RESOLUTION_HIGH;
+
+    if(vf == base::samples::frame::MODE_BAYER) 
+        format = FREENECT_VIDEO_BAYER;
+    else if(vf == base::samples::frame::MODE_RGB)
+        format = FREENECT_VIDEO_RGB;
+    else if(vf == base::samples::frame::MODE_GRAYSCALE)
+        format = FREENECT_VIDEO_IR_8BIT;
+
+    video_mode = freenect_find_video_mode(res, format);
+    depth_mode = freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_MM);
+
+    if(_video_capturing.get()) {
+        if(!video_mode.is_valid) {
+            LOG_ERROR("Current video format configuration (%d x %d, %s) not supported", 
+                    _video_width.get(), 
+                    _video_height.get(),
+                    (vf == base::samples::frame::MODE_BAYER ? "BAYER" :
+                     (vf == base::samples::frame::MODE_RGB ? "RGB" : 
+                      (vf == base::samples::frame::MODE_GRAYSCALE ? "IR" : "NONE"))));
+            return false;                 
+        }
+
+        if(!freenect_set_video_mode(device, video_mode)) {
+            LOG_ERROR("Couldn't set chosen video mode in freenect driver");
+            return false;
+        }
+    } else {
+        LOG_INFO("Video capturing is disabled. No images are written to port video_frame </base/samples/frame/Frame>");
+    }
+
+    if(_depth_capturing.get()) {
+        if(!depth_mode.is_valid) {
+            LOG_ERROR("Current depth format configuration (640 x 480, DEPTH_MM) not supported");
+            return false;
+        }
+
+        if(!freenect_set_depth_mode(device, depth_mode)) {
+            LOG_ERROR("Couldn't set chosen depth mode in freenect driver");
+            return false;
+        }
+    } else {
+        LOG_INFO("Depth capturing is disabled. No images are written to port depth_frame </base/samples/DistanceImage>");
+    }
+
+    return true;
+}
+
+
+void video_capturing_callback(freenect_device* device, void* video, uint32_t timestamp)
+{
+}
+
+
+void depth_capturing_callback(freenect_device* device, void* depth, uint32_t timestamp)
+{
+}
+
 
 
 /// The following lines are template definitions for the various state machine
@@ -97,21 +239,8 @@ bool Task::startHook()
     if (! RTT::TaskContext::startHook())
         return false;
 
-    if(freenect_init(&context, NULL) < 0) {
-        LOG_ERROR("Couldn't initialize freenect device context");
+    if(!initialize_freenect() || !initialize_frame_modes())
         return false;
-    }
-
-    LOG_INFO("%d kinect device(s) are connected to this system", freenect_num_devices(context));
-    LOG_INFO("Use kinect device with id %d", _device_id.get());
-
-    freenect_select_subdevices(context, static_cast<freenect_device_flags>(FREENECT_DEVICE_MOTOR | FREENECT_DEVICE_CAMERA));
-
-    if(freenect_open_device(context, &device, _device_id.get()) < 0) {
-        LOG_ERROR("Couldn't open freenect devices for motor, camera and audio");
-        return false;
-    }
-
 
     freenect_set_led(device, LED_GREEN);
        
@@ -125,6 +254,7 @@ void Task::updateHook()
     RTT::TaskContext::updateHook();
 
     base::Angle angle;
+    double dx, dy, dz;
 
     if(freenect_update_tilt_state(device) < 0) {
         LOG_ERROR("Couldn't update tilt state in motor device");
@@ -132,8 +262,11 @@ void Task::updateHook()
 
     freenect_raw_tilt_state* tilt_state = freenect_get_tilt_state(device);
     freenect_tilt_status_code tilt_status = freenect_get_tilt_status(tilt_state);
+    freenect_get_mks_accel(tilt_state, &dx, &dy, &dz);
 
     _tilt_angle.write( base::Angle::fromDeg(freenect_get_tilt_degs(tilt_state)) );
+
+    LOG_DEBUG("Tilt acceleration: %10.3lf x %10.3lf y %10.3lf z", dx, dy, dz);
 
     switch(state()) {
         case TILT_MOVING:

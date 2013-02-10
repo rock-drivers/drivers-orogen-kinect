@@ -30,7 +30,42 @@ namespace kinect {
         freenect_context* context;
         freenect_device* device;
 
-        void log_freenect_driver_informations(void);
+        freenect_frame_mode video_mode;
+        freenect_frame_mode depth_mode;
+
+        /**
+         * Output general driver freenect driver informations to rock's base logger
+         */
+        static void log_freenect_driver_informations(void);
+
+        /**
+         * redirect freenects log outputs to rock's base logger
+         */
+        static void redirect_freenect_logs_to_rock(freenect_context* context, freenect_loglevel level, const char* msg);
+
+
+        /**
+         * necessary capturing callback for video images
+         */
+        static void video_capturing_callback(freenect_device* device, void* video, uint32_t timestamp);
+
+        /**
+         * necessary capturing callback for depth images
+         */
+        static void depth_capturing_callback(freenect_device* device, void* depth, uint32_t timestamp);
+
+
+        /**
+         * freenect initialization routines for start hook
+         */
+        bool initialize_freenect(void);
+
+
+        /**
+         * check properties and set current frame mode configurations for video- and depth capturing
+         */
+        bool initialize_frame_modes(void);
+
 
     public:
         /** TaskContext constructor for Task
@@ -49,6 +84,7 @@ namespace kinect {
         /** Default deconstructor of Task
          */
 	    ~Task();
+
 
         /** This hook is called by Orocos when the state machine transitions
          * from PreOperational to Stopped. If it returns false, then the

@@ -16,11 +16,31 @@ task_context "Task" do
    output_port("tilt_angle", "/base/Angle").
         doc("current tilt angle from kinect sensor")
 
+
    input_port("tilt_command", "/base/Angle").
         doc("tilt command for controlling kinect's sensor servo")
 
+
    property("device_id", "int", 0).
         doc("selects a specific kinect device if more than one are connected")
+
+   property("freenect_flooding_log", "bool", false).
+        doc("show freenects flooding debug logs when BASE_LOG_LEVEL = debug")
+
+   property("video_capturing", "bool", true).
+        doc("en- or disable video capturing in freenect driver")
+
+   property("video_width", "int", 640).
+        doc("requested width for the image. This tasks chooses automatically a suitable format")
+
+   property("video_height", "int", 480).
+        doc("requested height for the image. This tasks chooses automatically a suitable format")
+
+   property("video_format", "/base/samples/frame/frame_mode_t", :MODE_BAYER).
+        doc("supported formats are MODE_RGB, MODE_BAYER and MODE_GRAYSCALE (infrared image)")
+
+   property("depth_capturing", "bool", true).
+        doc("en- or disable depth capturing in freenect driver")
 
    runtime_states :TILT_MOVING, :TILT_LIMIT
 
