@@ -1,5 +1,7 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.cpp */
 
+#define BASE_LOG_NAMESPACE Kinect
+
 #include "Task.hpp"
 #include <base/logging.h>
 
@@ -61,26 +63,25 @@ void Task::log_freenect_driver_informations(void)
     for(i = 0; i < video_modes; ++i) {
         freenect_frame_mode fm = freenect_get_video_mode(i);
 
-        RTT::log(RTT::Info) << "  video - " 
-            << fm.width << " x " << fm.height << ", " 
-            << video_format[fm.video_format] << ", " 
-            << fm.framerate << " fps, " 
-            << fm.data_bits_per_pixel << " databits per pixel, "
-            << fm.padding_bits_per_pixel << " padding bits per pixel"
-            << RTT::endlog();
+        LOG_INFO("  video - %d x %d, %s, %d fps, %d databits_pe_pixel, %d paddingbits_per_pixel",
+                fm.width, fm.height,
+                video_format[fm.video_format],
+                fm.framerate,
+                fm.data_bits_per_pixel,
+                fm.padding_bits_per_pixel);
+
     }
 
     for(i = 0; i < depth_modes; ++i) {
         freenect_frame_mode fm = freenect_get_depth_mode(i);
 
-        RTT::log(RTT::Info) << "  depth - " 
-            << fm.width << " x " << fm.height << ", " 
-            << depth_format[fm.depth_format] << ", " 
-            << fm.framerate << " fps, " 
-            << fm.data_bits_per_pixel << " databits per pixel, "
-            << fm.padding_bits_per_pixel << " padding bits per pixel"
-            << RTT::endlog();
-    }
+        LOG_INFO("  depth - %d x %d, %s, %d fps, %d databits_pe_pixel, %d paddingbits_per_pixel",
+                fm.width, fm.height,
+                depth_format[fm.depth_format],
+                fm.framerate,
+                fm.data_bits_per_pixel,
+                fm.padding_bits_per_pixel);
+   }
 
 }
 
@@ -97,17 +98,17 @@ bool Task::startHook()
         return false;
 
     if(freenect_init(&context, NULL) < 0) {
-        RTT::log(RTT::Error) << "Couldn't initialize freenect device context" << RTT::endlog();
+        LOG_ERROR("Couldn't initialize freenect device context");
         return false;
     }
 
-    RTT::log(RTT::Info) << freenect_num_devices(context) << " kinect device(s) are connected to this system" << RTT::endlog();
-    RTT::log(RTT::Info) << "Use kinect device with id " << _device_id.get() << RTT::endlog();
+    LOG_INFO("%d kinect device(s) are connected to this system", freenect_num_devices(context));
+    LOG_INFO("Use kinect device with id %d", _device_id.get());
 
     freenect_select_subdevices(context, static_cast<freenect_device_flags>(FREENECT_DEVICE_MOTOR | FREENECT_DEVICE_CAMERA));
 
     if(freenect_open_device(context, &device, _device_id.get()) < 0) {
-        RTT::log(RTT::Error) << "Couldn't open freenect devices for motor, camera and audio" << RTT::endlog();
+        LOG_ERROR("Couldn't open freenect devices for motor, camera and audio");
         return false;
     }
 
@@ -126,7 +127,7 @@ void Task::updateHook()
     base::Angle angle;
 
     if(freenect_update_tilt_state(device) < 0) {
-        RTT::log(RTT::Error) << "Couldn't update tilt state in motor device" << RTT::endlog();
+        LOG_ERROR("Couldn't update tilt state in motor device");
     }
 
     freenect_raw_tilt_state* tilt_state = freenect_get_tilt_state(device);
@@ -143,7 +144,7 @@ void Task::updateHook()
 
     while(_tilt_command.connected() && _tilt_command.read(angle) == RTT::NewData) {
         if(freenect_set_tilt_degs(device, angle.getDeg()) <  0) {
-            RTT::log(RTT::Error) << "Setting tilt angle with value " << angle.getRad() << " (" << angle.getDeg() << " deg) failed" << RTT::endlog();
+            LOG_ERROR("Setting tilt angle with value %lf (%lf deg) failed", angle.getRad(), angle.getDeg());
         }
 
         state(TILT_MOVING);
