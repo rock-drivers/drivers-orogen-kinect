@@ -3,6 +3,8 @@
 #ifndef KINECT_TASK_TASK_HPP
 #define KINECT_TASK_TASK_HPP
 
+#include <libfreenect.h>
+
 #include "kinect/TaskBase.hpp"
 
 namespace kinect {
@@ -25,26 +27,28 @@ namespace kinect {
     {
 	friend class TaskBase;
     protected:
+        freenect_context* context;
+        freenect_device* device;
 
-
+        void log_freenect_driver_informations(void);
 
     public:
         /** TaskContext constructor for Task
          * \param name Name of the task. This name needs to be unique to make it identifiable via nameservices.
          * \param initial_state The initial TaskState of the TaskContext. Default is Stopped state.
          */
-        Task(std::string const& name = "kinect::Task");
+        Task(std::string const& name = "kinect::Task", RTT::base::TaskCore::TaskState state = Stopped);
 
         /** TaskContext constructor for Task 
          * \param name Name of the task. This name needs to be unique to make it identifiable for nameservices. 
          * \param engine The RTT Execution engine to be used for this task, which serialises the execution of all commands, programs, state machines and incoming events for a task. 
          * 
          */
-        Task(std::string const& name, RTT::ExecutionEngine* engine);
+        Task(std::string const& name, RTT::ExecutionEngine* engine, RTT::base::TaskCore::TaskState state = Stopped);
 
         /** Default deconstructor of Task
          */
-	~Task();
+	    ~Task();
 
         /** This hook is called by Orocos when the state machine transitions
          * from PreOperational to Stopped. If it returns false, then the
@@ -60,7 +64,7 @@ namespace kinect {
          end
          \endverbatim
          */
-        bool configureHook();
+        //bool configureHook();
 
         /** This hook is called by Orocos when the state machine transitions
          * from Stopped to Running. If it returns false, then the component will
@@ -102,7 +106,7 @@ namespace kinect {
          * from Stopped to PreOperational, requiring the call to configureHook()
          * before calling start() again.
          */
-        void cleanupHook();
+        //void cleanupHook();
     };
 }
 
