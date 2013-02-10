@@ -23,15 +23,39 @@ namespace kinect {
      \endverbatim
      *  It can be dynamically adapted when the deployment is called with a prefix argument. 
      */
+
+    /**
+     * necessary capturing callback for video images
+     */
+    void video_capturing_callback(freenect_device* device, void* video, uint32_t timestamp);
+
+    /**
+     * necessary capturing callback for depth images
+     */
+    void depth_capturing_callback(freenect_device* device, void* depth, uint32_t timestamp);
+
+
     class Task : public TaskBase
     {
-	friend class TaskBase;
+        friend class TaskBase;
+        friend void video_capturing_callback(freenect_device* device, void* video, uint32_t timestamp);
+        friend void depth_capturing_callback(freenect_device* device, void* depth, uint32_t timestamp);
+
     protected:
         freenect_context* context;
         freenect_device* device;
 
         freenect_frame_mode video_mode;
         freenect_frame_mode depth_mode;
+
+        uint8_t* internal_video_buffer;
+        uint8_t* internal_depth_buffer;
+
+        RTT::extras::ReadOnlyPointer<base::samples::frame::Frame> video_frame;
+        RTT::extras::ReadOnlyPointer<base::samples::DistanceImage> depth_frame;
+
+        bool video_capturing_enabled;
+        bool depth_capturing_enabled;
 
         /**
          * Output general driver freenect driver informations to rock's base logger
@@ -44,16 +68,6 @@ namespace kinect {
         static void redirect_freenect_logs_to_rock(freenect_context* context, freenect_loglevel level, const char* msg);
 
 
-        /**
-         * necessary capturing callback for video images
-         */
-        static void video_capturing_callback(freenect_device* device, void* video, uint32_t timestamp);
-
-        /**
-         * necessary capturing callback for depth images
-         */
-        static void depth_capturing_callback(freenect_device* device, void* depth, uint32_t timestamp);
-
 
         /**
          * freenect initialization routines for start hook
@@ -64,7 +78,7 @@ namespace kinect {
         /**
          * check properties and set current frame mode configurations for video- and depth capturing
          */
-        bool initialize_frame_modes(void);
+        bool initialize_frames(void);
 
 
     public:
