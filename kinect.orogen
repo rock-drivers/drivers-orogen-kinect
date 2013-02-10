@@ -22,7 +22,7 @@ task_context "Task" do
    property("device_id", "int", 0).
         doc("selects a specific kinect device if more than one are connected")
 
-   runtime_states :TILT_MOVING
+   runtime_states :TILT_MOVING, :TILT_LIMIT
 
    default_activity 'periodic', 0.1
 end

@@ -137,8 +137,18 @@ void Task::updateHook()
 
     switch(state()) {
         case TILT_MOVING:
-            if(tilt_status == TILT_STATUS_LIMIT || tilt_status == TILT_STATUS_STOPPED)
+            if(tilt_status == TILT_STATUS_STOPPED)
                 state(RUNNING);
+            else if(tilt_status == TILT_STATUS_LIMIT)
+                state(TILT_LIMIT);
+            break;
+
+        case TILT_LIMIT:
+            if(tilt_status == TILT_STATUS_STOPPED)
+                state(RUNNING);
+            break;
+
+        default:
             break;
     }
 
