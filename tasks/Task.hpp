@@ -63,9 +63,6 @@ namespace kinect {
         RTT::extras::ReadOnlyPointer<base::samples::frame::Frame> video_frame;
         RTT::extras::ReadOnlyPointer<base::samples::DistanceImage> depth_frame;
 
-        bool video_capturing_enabled;
-        bool depth_capturing_enabled;
-
         pthread_t freenect_thread;
 
         /**

@@ -147,7 +147,6 @@ void Task::redirect_freenect_logs_to_rock(freenect_context* context, freenect_lo
 
 bool Task::initialize_freenect(void)
 {
-    // initialize freenect context, devices and logging redirects
     if(freenect_init(&context, NULL) < 0) {
         LOG_ERROR("Couldn't initialize freenect device context");
         return false;
@@ -170,8 +169,7 @@ bool Task::initialize_freenect(void)
         return false;
     }
 
-    // setup hooks and buffer references for capturing
-    //freenect_set_user(device, this);
+    freenect_set_user(device, this);
 
     freenect_set_video_callback(device, &video_capturing_callback);
     freenect_set_depth_callback(device, &depth_capturing_callback);
@@ -229,11 +227,8 @@ bool Task::initialize_frames(void)
             return false;
         }
 
-        // initialize video frames
-        frame::Frame* frame = new frame::Frame(video_mode.width, video_mode.height, 8, vf); 
         internal_video_buffer = new uint8_t[video_mode.bytes];
 
-        video_frame.reset(frame);
 
     } else {
         LOG_INFO("Video capturing is disabled. No images are written to port video_frame </base/samples/frame/Frame>");
@@ -273,17 +268,21 @@ bool Task::initialize_frames(void)
 
 void kinect::video_capturing_callback(freenect_device* device, void* video, uint32_t timestamp)
 {
-    kinect::Task* task = reinterpret_cast<Task*>(freenect_get_user(device));
-    //frame::Frame* frame = task->video_frame.write_access();
+    kinect::Task* task = reinterpret_cast<kinect::Task*>(freenect_get_user(device));
 
-    //frame->setStatus(frame::STATUS_VALID);
-    //frame->received_time = base::Time::now();
-    
-    //frame->setImage(reinterpret_cast<const char*>(video), task->video_mode.bytes);
+    frame::Frame* frame = new frame::Frame(task->video_mode.width, 
+            task->video_mode.height, 8, task->_video_format.get()); 
 
-    //frame->attributes.clear();
+    frame->setImage(reinterpret_cast<const char*>(video), task->video_mode.bytes);
+    frame->setStatus(frame::STATUS_VALID);
+    frame->received_time = base::Time::now();
+    frame->time = base::Time::now();
 
-    //task->_video_frame.write(task->video_frame);
+    frame->attributes.clear();
+
+    task->video_frame.reset(frame);
+
+    task->_video_frame.write(task->video_frame);
 }
 
 
