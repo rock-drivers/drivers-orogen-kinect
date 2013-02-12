@@ -15,5 +15,5 @@
   -->
 
   <depend package="base/types" />
-  <depend package="drivers/freenect" />
+  <depend package="external/freenect" />
 </package>
