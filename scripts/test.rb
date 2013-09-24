@@ -7,7 +7,9 @@ Orocos.run "kinect::Task" => "kinect" do
   kinect = TaskContext.get "kinect"
   angle = Types::Base::Angle.new
   tilt_writer = kinect.tilt_command.writer
-
+  kinect.video_format = :MODE_RGB
+#  kinect.freenect_flooding_log = true
+#  kinect.video_format = :MODE_GRAYSCALE
   kinect.start
 
   angle.rad = 30 * (Math::PI / 180.0)
@@ -24,6 +26,9 @@ Orocos.run "kinect::Task" => "kinect" do
   tilt_writer.write angle
 
   sleep 8
+  loop do
+	sleep 1
+  end
 
   kinect.stop
 end

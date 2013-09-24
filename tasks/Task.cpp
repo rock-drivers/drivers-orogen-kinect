@@ -6,7 +6,7 @@
 #include <base/logging.h>
 #include <string>
 #include <signal.h>
-
+#include <inttypes.h>
 
 using namespace kinect;
 using namespace base::samples;
@@ -236,6 +236,7 @@ bool Task::initialize_frames(void)
 
 
     if(_depth_capturing.get()) {
+	printf("Depth cpturing on\n");
         if(freenect_set_depth_buffer(device, internal_depth_buffer) < 0) {
            LOG_ERROR("Couldn't set reference to the internal depth buffer in freenect");
             return false;
@@ -254,7 +255,7 @@ bool Task::initialize_frames(void)
 
         DistanceImage* frame = new DistanceImage;
         internal_depth_buffer = new uint8_t[depth_mode.bytes];
-
+        printf("Depth mode bytes: %i, width: %i, height: %i\n",depth_mode.bytes,depth_mode.width,depth_mode.height);
         frame->setSize(depth_mode.width, depth_mode.height);
         depth_frame.reset(frame);
 
@@ -289,8 +290,22 @@ void kinect::video_capturing_callback(freenect_device* device, void* video, uint
 void kinect::depth_capturing_callback(freenect_device* device, void* depth, uint32_t timestamp)
 {
     kinect::Task* task = reinterpret_cast<kinect::Task*>(freenect_get_user(device));
+   
+    base::samples::DistanceImage* frame = new base::samples::DistanceImage(task->depth_mode.width,task->depth_mode.height); 
+
+    uint16_t *data = (uint16_t*)depth;
+    frame->data.resize(task->depth_mode.width*task->depth_mode.height);
+    for(unsigned int i = 0; i< task->depth_mode.width*task->depth_mode.height;i++){
+        frame->data[i] = data[i]/1000.0; //to meters
+    }
+    //From: http://vision.in.tum.de/data/datasets/rgbd-dataset/file_formats
+    frame->setIntrinsic(525,525,319.5,239,5);
+    frame->time = base::Time::now();
+
+    task->depth_frame.reset(frame);
+
+    task->_depth_image.write(task->depth_frame);
         
-    //DistanceImage* frame = task->depth_frame.write_access();
 }
 
 
