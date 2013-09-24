@@ -299,7 +299,7 @@ void kinect::depth_capturing_callback(freenect_device* device, void* depth, uint
         frame->data[i] = data[i]/1000.0; //to meters
     }
     //From: http://vision.in.tum.de/data/datasets/rgbd-dataset/file_formats
-    frame->setIntrinsic(525,525,319.5,239,5);
+    frame->setIntrinsic(525,525,319.5,239.5);
     frame->time = base::Time::now();
 
     task->depth_frame.reset(frame);
