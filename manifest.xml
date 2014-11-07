@@ -1,8 +1,8 @@
 <package>
-  <description brief="orocos tasks for microsofts xbox 260 kinect">
+  <description brief="orocos tasks for microsofts xbox">
   
   </description>
-  <author>christoph.mueller@dfki.de/christoph.mueller@dfki.de</author>
+  <author>matthias.goldhoorn@uni-bremen.de/Matthias Goldhoorn</author>
   <license></license>
   <url>http://</url>
   <logo>http://</logo>
@@ -15,5 +15,5 @@
   -->
 
   <depend package="base/types" />
-  <depend package="external/freenect" />
+  <depend package="freenect" />
 </package>
