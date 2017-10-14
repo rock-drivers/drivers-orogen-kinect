@@ -3,7 +3,7 @@
 #define BASE_LOG_NAMESPACE Kinect
 
 #include "Task.hpp"
-#include <base/logging.h>
+#include <base-logging/Logging.hpp>
 #include <string>
 #include <signal.h>
 #include <inttypes.h>
